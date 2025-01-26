@@ -3,6 +3,8 @@ package circuitlord.reactivemusic;
 import circuitlord.reactivemusic.config.ModConfig;
 import circuitlord.reactivemusic.config.MusicDelayLength;
 import circuitlord.reactivemusic.config.MusicSwitchSpeed;
+import com.cobblemon.mod.common.client.sound.BattleMusicController;
+import com.cobblemon.mod.common.client.sound.instances.BattleMusicInstance;
 import net.fabricmc.api.ModInitializer;
 
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
@@ -24,372 +26,372 @@ import java.util.Random;
 
 public class ReactiveMusic implements ModInitializer {
 
-	public static final String MOD_ID = "reactive_music";
-	public static final String MOD_VERSION = "1.0.2";
+    public static final String MOD_ID = "reactive_music";
+    public static final String MOD_VERSION = "1.0.2";
 
-	public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
+    public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
-	private static final int WAIT_FOR_SWITCH_DURATION = 100;
-	public static final int FADE_DURATION = 150;
-	public static final int SILENCE_DURATION = 100;
+    private static final int WAIT_FOR_SWITCH_DURATION = 100;
+    public static final int FADE_DURATION = 150;
+    public static final int SILENCE_DURATION = 100;
 
-	public static int additionalSilence = 0;
+    public static int additionalSilence = 0;
 
-	public static PlayerThread thread;
-
-
-	public static SongpackZip currentSongpack = null;
-
-	static boolean queuedToStopMusic = false;
-	static boolean queuedToPlayMusic = false;
-
-	//static List<RMRuntimeEntry> currentEntries = new ArrayList<>();
-
-	static String currentSong = null;
-	static RMRuntimeEntry currentEntry = null;
-
-	//static List<SongpackEntry> currentGenericEntries = new ArrayList<>();
-	
-	//static String nextSong;
-	static int waitForStopTicks = 0;
-	static int waitForNewSongTicks = 99999;
-	static int fadeOutTicks = 0;
-	//static int fadeInTicks = 0;
-	static int silenceTicks = 0;
-
-	static int musicDiscDuckTicks = 0;
-
-	static int slowTickUpdateCounter = 0;
-
-	static boolean currentDimBlacklisted = false;
-
-	boolean doSilenceForNextQueuedSong = true;
-
-	static List<RMRuntimeEntry> previousValidEntries = new ArrayList<>();
+    public static PlayerThread thread;
 
 
-	static Random rand = new Random();
+    public static SongpackZip currentSongpack = null;
+
+    static boolean queuedToStopMusic = false;
+    static boolean queuedToPlayMusic = false;
+
+    //static List<RMRuntimeEntry> currentEntries = new ArrayList<>();
+
+    static String currentSong = null;
+    static RMRuntimeEntry currentEntry = null;
+
+    //static List<SongpackEntry> currentGenericEntries = new ArrayList<>();
+
+    //static String nextSong;
+    static int waitForStopTicks = 0;
+    static int waitForNewSongTicks = 99999;
+    static int fadeOutTicks = 0;
+    //static int fadeInTicks = 0;
+    static int silenceTicks = 0;
+
+    static int musicDiscDuckTicks = 0;
+
+    static int slowTickUpdateCounter = 0;
+
+    //static boolean currentDimBlacklisted = false;
+    static boolean silentMode = false;
+
+    boolean doSilenceForNextQueuedSong = true;
+
+    static List<RMRuntimeEntry> previousValidEntries = new ArrayList<>();
 
 
-	static ModConfig config;
+    static Random rand = new Random();
 
 
-	// Add this static list to the class
-	//private static List<SongpackEntry> validEntries = new ArrayList<>();
+    static ModConfig config;
 
 
-	private static List<RMRuntimeEntry> loadedEntries = new ArrayList<>();
+    // Add this static list to the class
+    //private static List<SongpackEntry> validEntries = new ArrayList<>();
 
 
-	public static final List<SoundInstance> musicDiscInstanceList = new ArrayList<SoundInstance>();
+    private static List<RMRuntimeEntry> loadedEntries = new ArrayList<>();
 
 
-	@Override
-	public void onInitialize() {
-
-		LOGGER.info("--------------------------------------------");
-		LOGGER.info("|     Reactive Music initialization...     |");
-		LOGGER.info("|                version " + MOD_VERSION +"              |");
-		LOGGER.info("--------------------------------------------");
+    public static final List<SoundInstance> musicDiscInstanceList = new ArrayList<SoundInstance>();
 
 
+    @Override
+    public void onInitialize() {
 
-		ModConfig.GSON.load();
-		config = ModConfig.getConfig();
-
-
-		//Path test = Path.of("K:\\Projects\\MC\\BetterMusic\\run\\resourcepacks\\AwesomeMixVol2");
-		//SongpackZip zip = RMSongpackLoader.loadSongpack(test, false);
-
-
-		//SongLoader.fetchAvailableSongpacks();
-
-		SongPicker.initialize();
+        LOGGER.info("--------------------------------------------");
+        LOGGER.info("|     Reactive Music initialization...     |");
+        LOGGER.info("|                version " + MOD_VERSION + "              |");
+        LOGGER.info("--------------------------------------------");
 
 
-		thread = new PlayerThread();
-
-		RMSongpackLoader.fetchAvailableSongpacks();
-
-		boolean loadedUserSongpack = false;
-
-		// try to load a saved songpack
-		if (!config.loadedUserSongpack.isEmpty()) {
-
-			for (var songpack : RMSongpackLoader.availableSongpacks) {
-				if (!songpack.config.name.equals(config.loadedUserSongpack)) continue;
-
-				// something is broken in this songpack, don't load it
-				if (songpack.blockLoading)
-					continue;
-
-				setActiveSongpack(songpack);
-				loadedUserSongpack = true;
-
-				break;
-			}
-		}
-
-		// load the default one
-		if (!loadedUserSongpack) {
-
-			// for the cases where something is broken in the base songpack
-			if (!RMSongpackLoader.availableSongpacks.get(0).blockLoading) {
-				// first is the default songpack
-				setActiveSongpack(RMSongpackLoader.availableSongpacks.get(0));
-			}
-		}
+        ModConfig.GSON.load();
+        config = ModConfig.getConfig();
 
 
+        //Path test = Path.of("K:\\Projects\\MC\\BetterMusic\\run\\resourcepacks\\AwesomeMixVol2");
+        //SongpackZip zip = RMSongpackLoader.loadSongpack(test, false);
+
+
+        //SongLoader.fetchAvailableSongpacks();
+
+        SongPicker.initialize();
+
+
+        thread = new PlayerThread();
+
+        RMSongpackLoader.fetchAvailableSongpacks();
+
+        boolean loadedUserSongpack = false;
+
+        // try to load a saved songpack
+        if (!config.loadedUserSongpack.isEmpty()) {
+
+            for (var songpack : RMSongpackLoader.availableSongpacks) {
+                if (!songpack.config.name.equals(config.loadedUserSongpack)) continue;
+
+                // something is broken in this songpack, don't load it
+                if (songpack.blockLoading)
+                    continue;
+
+                setActiveSongpack(songpack);
+                loadedUserSongpack = true;
+
+                break;
+            }
+        }
+
+        // load the default one
+        if (!loadedUserSongpack) {
+
+            // for the cases where something is broken in the base songpack
+            if (!RMSongpackLoader.availableSongpacks.get(0).blockLoading) {
+                // first is the default songpack
+                setActiveSongpack(RMSongpackLoader.availableSongpacks.get(0));
+            }
+        }
 
 
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> dispatcher.register(ClientCommandManager.literal("reactivemusic")
-				.executes(context -> {
-							MinecraftClient mc = context.getSource().getClient();
-							Screen screen = ModConfig.createScreen(mc.currentScreen);
-							mc.send(() -> mc.setScreen(screen));
-							return 1;
-						}
-				)
+                        .executes(context -> {
+                                    MinecraftClient mc = context.getSource().getClient();
+                                    Screen screen = ModConfig.createScreen(mc.currentScreen);
+                                    mc.send(() -> mc.setScreen(screen));
+                                    return 1;
+                                }
+                        )
 
-				.then(ClientCommandManager.literal("blacklistDimension")
-						.executes(context -> {
+                        .then(ClientCommandManager.literal("blacklistDimension")
+                                .executes(context -> {
 
-							String key = context.getSource().getClient().world.getRegistryKey().getValue().toString();
+                                    String key = context.getSource().getClient().world.getRegistryKey().getValue().toString();
 
-							if (config.blacklistedDimensions.contains(key)) {
-								context.getSource().sendFeedback(Text.literal("ReactiveMusic: " + key + " was already in blacklist."));
-								return 1;
-							}
+                                    if (config.blacklistedDimensions.contains(key)) {
+                                        context.getSource().sendFeedback(Text.literal("ReactiveMusic: " + key + " was already in blacklist."));
+                                        return 1;
+                                    }
 
-							context.getSource().sendFeedback(Text.literal("ReactiveMusic: Added " + key + " to blacklist."));
+                                    context.getSource().sendFeedback(Text.literal("ReactiveMusic: Added " + key + " to blacklist."));
 
-							config.blacklistedDimensions.add(key);
-							ModConfig.saveConfig();
+                                    config.blacklistedDimensions.add(key);
+                                    ModConfig.saveConfig();
 
-							return 1;
-						})
-				)
+                                    return 1;
+                                })
+                        )
 
-				.then(ClientCommandManager.literal("unblacklistDimension")
-						.executes(context -> {
-							String key = context.getSource().getClient().world.getRegistryKey().getValue().toString();
+                        .then(ClientCommandManager.literal("unblacklistDimension")
+                                .executes(context -> {
+                                    String key = context.getSource().getClient().world.getRegistryKey().getValue().toString();
 
-							if (!config.blacklistedDimensions.contains(key)) {
-								context.getSource().sendFeedback(Text.literal("ReactiveMusic: " + key + " was not in blacklist."));
-								return 1;
-							}
+                                    if (!config.blacklistedDimensions.contains(key)) {
+                                        context.getSource().sendFeedback(Text.literal("ReactiveMusic: " + key + " was not in blacklist."));
+                                        return 1;
+                                    }
 
-							context.getSource().sendFeedback(Text.literal("ReactiveMusic: Removed " + key + " from blacklist."));
+                                    context.getSource().sendFeedback(Text.literal("ReactiveMusic: Removed " + key + " from blacklist."));
 
-							config.blacklistedDimensions.remove(key);
-							ModConfig.saveConfig();
+                                    config.blacklistedDimensions.remove(key);
+                                    ModConfig.saveConfig();
 
-							return 1;
-						})
-				)
+                                    return 1;
+                                })
+                        )
 
-			)
-		);
-	}
+                )
+        );
+    }
 
-	public static void newTick() {
+    public static void newTick() {
 
-		if (thread == null) return;
-		if (currentSongpack == null) return;
-		if (loadedEntries.isEmpty()) return;
+        if (thread == null) return;
+        if (currentSongpack == null) return;
+        if (loadedEntries.isEmpty()) return;
 
-		MinecraftClient mc = MinecraftClient.getInstance();
+        MinecraftClient mc = MinecraftClient.getInstance();
+        assert mc != null;
+        boolean cobblemonBattleMusicIsPlaying = mc.getSoundManager().isPlaying(BattleMusicController.INSTANCE.getMusic());
 
-		slowTickUpdateCounter++;
-		if (slowTickUpdateCounter > 20) {
 
-			currentDimBlacklisted = false;
+        slowTickUpdateCounter++;
+        if (slowTickUpdateCounter > 20) {
 
-			// see if the dimension we're in is blacklisted -- update at same time as event map to keep them in sync
-			if (mc != null && mc.world != null) {
-				String curDim = mc.world.getRegistryKey().getValue().toString();
+            //currentDimBlacklisted = false;
+            silentMode = false;
+            // see if the dimension we're in is blacklisted -- update at same time as event map to keep them in sync
+            if (mc.world != null) {
+                String curDim = mc.world.getRegistryKey().getValue().toString();
 
-				for (String dim : config.blacklistedDimensions) {
-					if (dim.equals(curDim)) {
-						currentDimBlacklisted = true;
-						break;
-					}
-				}
-			}
+                for (String dim : config.blacklistedDimensions) {
+                    if (dim.equals(curDim)) {
+                        //currentDimBlacklisted = true;
+                        silentMode = true;
+                       // mc.inGameHud.getChatHud().addMessage(Text.of("Silent mode ON (dimension)"));
+                        break;
+                    }
+                }
+                if (cobblemonBattleMusicIsPlaying) {
+                    silentMode = true;
+                    //mc.inGameHud.getChatHud().addMessage(Text.of("Silent mode ON (battle)"));
+                }
+            }
 
-			SongPicker.tickEventMap();
+            SongPicker.tickEventMap();
 
-			slowTickUpdateCounter = 0;
-		}
+            slowTickUpdateCounter = 0;
+        }
 
 
-		// -------------------------
+        // -------------------------
 
-		// clear playing state if not playing
-		if (thread.notQueuedOrPlaying()) {
-			resetPlayer();
-		}
+        // clear playing state if not playing
+        if (thread.notQueuedOrPlaying()) {
+            resetPlayer();
+        }
 
 
-		// -------------------------
+        // -------------------------
 
-		processMusicDiscPlaying();
+        processMusicDiscPlaying();
 
 
-		RMRuntimeEntry newEntry = null;
+        RMRuntimeEntry newEntry = null;
 
-		List<RMRuntimeEntry> validEntries = getValidEntries();
+        List<RMRuntimeEntry> validEntries = getValidEntries();
+        if (!silentMode) {
+            processValidEvents(validEntries, previousValidEntries);
+            // Pick the highest priority one
+            if (!validEntries.isEmpty()) {
+                newEntry = validEntries.get(0);
+            }
+        }
 
-		// Pick the highest priority one
-		if (!validEntries.isEmpty()) {
-			newEntry = validEntries.get(0);
-		}
+        //if (currentDimBlacklisted)
+        // newEntry = null;
 
-		processValidEvents(validEntries, previousValidEntries);
 
+        if (newEntry != null) {
 
-		if (currentDimBlacklisted)
-			newEntry = null;
+            List<String> selectedSongs = getSelectedSongs(newEntry, validEntries);
 
 
-		if (newEntry != null) {
+            // wants to switch if our current entry doesn't exist -- or is not the same as the new one
+            boolean wantsToSwitch = currentEntry == null || newEntry != currentEntry;
 
-			List<String> selectedSongs = getSelectedSongs(newEntry, validEntries);
+            // if the new entry contains the same song as our current one, then do a "fake" swap to swap over to the new entry
+            if (wantsToSwitch && currentSong != null && newEntry.songs.contains(currentSong)) {
 
+                LOGGER.info("doing fake swap to new event: " + newEntry.eventString);
 
-			// wants to switch if our current entry doesn't exist -- or is not the same as the new one
-			boolean wantsToSwitch = currentEntry == null || newEntry != currentEntry;
+                // do a fake swap
+                currentEntry = newEntry;
+                wantsToSwitch = false;
 
-			// if the new entry contains the same song as our current one, then do a "fake" swap to swap over to the new entry
-			if (wantsToSwitch && currentSong != null && newEntry.songs.contains(currentSong)) {
+                // if this happens, also clear the queued state since we essentially did a switch
+                queuedToStopMusic = false;
+                queuedToPlayMusic = false;
+            }
 
-				LOGGER.info("doing fake swap to new event: " + newEntry.eventString);
+            // make sure we're fully faded in if we faded out for any reason but this event is valid
+            if (thread.isPlaying() && !wantsToSwitch && fadeOutTicks > 0) {
+                fadeOutTicks--;
 
-				// do a fake swap
-				currentEntry = newEntry;
-				wantsToSwitch = false;
+                // Copy the behavior from below where it fades out
+                thread.setGainPercentage(1f - (fadeOutTicks / (float) FADE_DURATION));
+            }
 
-				// if this happens, also clear the queued state since we essentially did a switch
-				queuedToStopMusic = false;
-				queuedToPlayMusic = false;
-			}
 
-			// make sure we're fully faded in if we faded out for any reason but this event is valid
-			if (thread.isPlaying() && !wantsToSwitch && fadeOutTicks > 0) {
-				fadeOutTicks--;
+            // ---- FADE OUT ----
 
-				// Copy the behavior from below where it fades out
-				thread.setGainPercentage(1f - (fadeOutTicks / (float)FADE_DURATION));
-			}
+            if (wantsToSwitch && thread.isPlaying()) {
 
+                waitForStopTicks++;
 
+                boolean shouldFadeOutMusic = false;
 
-			// ---- FADE OUT ----
+                // handle fade-out if something's playing when a new event becomes valid
+                if (waitForStopTicks > getMusicStopSpeed(currentSongpack)) {
+                    shouldFadeOutMusic = true;
+                }
 
-			if (wantsToSwitch && thread.isPlaying()) {
+                // if we're queued to force stop the music, do so here
+                if (queuedToStopMusic) {
+                    shouldFadeOutMusic = true;
+                }
 
-				waitForStopTicks++;
+                if (shouldFadeOutMusic) {
+                    tickFadeOut();
+                }
+            } else {
+                waitForStopTicks = 0;
+            }
 
-				boolean shouldFadeOutMusic = false;
+            //  ---- SWITCH SONG ----
 
-				// handle fade-out if something's playing when a new event becomes valid
-				if (waitForStopTicks > getMusicStopSpeed(currentSongpack)) {
-					shouldFadeOutMusic = true;
-				}
+            if (wantsToSwitch && thread.notQueuedOrPlaying()) {
 
-				// if we're queued to force stop the music, do so here
-				if (queuedToStopMusic) {
-					shouldFadeOutMusic = true;
-				}
+                waitForNewSongTicks++;
 
-				if (shouldFadeOutMusic) {
-					tickFadeOut();
-				}
-			}
-			else {
-				waitForStopTicks = 0;
-			}
+                boolean shouldStartNewSong = false;
 
-			//  ---- SWITCH SONG ----
+                if (waitForNewSongTicks > getMusicDelay(currentSongpack)) {
+                    shouldStartNewSong = true;
+                }
 
-			if (wantsToSwitch && thread.notQueuedOrPlaying()) {
+                // if we're queued to start a new song and we're not playing anything, do it
+                if (queuedToPlayMusic) {
+                    shouldStartNewSong = true;
+                }
 
-				waitForNewSongTicks++;
+                if (shouldStartNewSong) {
 
-				boolean shouldStartNewSong = false;
+                    String picked = SongPicker.pickRandomSong(selectedSongs);
 
-				if (waitForNewSongTicks > getMusicDelay(currentSongpack)) {
-					shouldStartNewSong = true;
-				}
+                    changeCurrentSong(picked, newEntry);
+                }
 
-				// if we're queued to start a new song and we're not playing anything, do it
-				if (queuedToPlayMusic) {
-					shouldStartNewSong = true;
-				}
+            } else {
+                waitForNewSongTicks = 0;
+            }
 
-				if (shouldStartNewSong) {
 
-					String picked = SongPicker.pickRandomSong(selectedSongs);
+        }
 
-					changeCurrentSong(picked, newEntry);
-				}
+        // no entries are valid, we shouldn't be playing any music!
+        // this can happen if no entry is valid or the dimension is blacklisted
+        else {
 
-			}
-			else {
-				waitForNewSongTicks = 0;
-			}
+            tickFadeOut();
 
+        }
 
 
+        thread.processRealGain();
 
-		}
 
-		// no entries are valid, we shouldn't be playing any music!
-		// this can happen if no entry is valid or the dimension is blacklisted
-		else {
+        previousValidEntries = validEntries;
 
-			tickFadeOut();
+    }
 
-		}
+    private static @NotNull List<String> getSelectedSongs(RMRuntimeEntry newEntry, List<RMRuntimeEntry> validEntries) {
 
+        // if we have non-recent songs then just return those
+        if (SongPicker.hasSongNotPlayedRecently(newEntry.songs)) {
+            return newEntry.songs;
+        }
 
+        // Fallback behaviour
+        if (newEntry.allowFallback) {
+            for (int i = 1; i < validEntries.size(); i++) {
+                if (validEntries.get(i) == null)
+                    continue;
 
-		thread.processRealGain();
+                // check if we have songs not played recently and early out
+                if (SongPicker.hasSongNotPlayedRecently(validEntries.get(i).songs)) {
+                    return validEntries.get(i).songs;
+                }
+            }
+        }
 
 
-		previousValidEntries = validEntries;
+        // we've played everything recently, just give up and return this event's songs
+        return newEntry.songs;
+    }
 
-	}
 
-	private static @NotNull List<String> getSelectedSongs(RMRuntimeEntry newEntry, List<RMRuntimeEntry> validEntries) {
-
-		// if we have non-recent songs then just return those
-		if (SongPicker.hasSongNotPlayedRecently(newEntry.songs)) {
-			return newEntry.songs;
-		}
-
-		// Fallback behaviour
-		if (newEntry.allowFallback) {
-			for (int i = 1; i < validEntries.size(); i++) {
-				if (validEntries.get(i) == null)
-					continue;
-
-				// check if we have songs not played recently and early out
-				if (SongPicker.hasSongNotPlayedRecently(validEntries.get(i).songs)) {
-					return validEntries.get(i).songs;
-				}
-			}
-		}
-
-
-		// we've played everything recently, just give up and return this event's songs
-		return newEntry.songs;
-	}
-
-
-	public static List<RMRuntimeEntry> getValidEntries() {
-		List<RMRuntimeEntry> validEntries = new ArrayList<>();
+    public static List<RMRuntimeEntry> getValidEntries() {
+        List<RMRuntimeEntry> validEntries = new ArrayList<>();
 
         for (RMRuntimeEntry loadedEntry : loadedEntries) {
 
@@ -400,265 +402,248 @@ public class ReactiveMusic implements ModInitializer {
             }
         }
 
-		return validEntries;
-	}
+        return validEntries;
+    }
 
-	private static void processValidEvents(List<RMRuntimeEntry> validEntries, List<RMRuntimeEntry> previousValidEntries) {
+    private static void processValidEvents(List<RMRuntimeEntry> validEntries, List<RMRuntimeEntry> previousValidEntries) {
 
 
-		for (var entry : previousValidEntries) {
+        for (var entry : previousValidEntries) {
 
-			// if this event was valid before and is invalid now
-			if (entry.forceStopMusicOnInvalid && !validEntries.contains(entry)) {
-				LOGGER.info("trying forceStopMusicOnInvalid: " + entry.eventString);
+            // if this event was valid before and is invalid now
+            if (entry.forceStopMusicOnInvalid && !validEntries.contains(entry)) {
+                LOGGER.info("trying forceStopMusicOnInvalid: " + entry.eventString);
 
-				if (entry.cachedRandomChance <= entry.forceChance) {
+                if (entry.cachedRandomChance <= entry.forceChance) {
 
-					LOGGER.info("doing forceStopMusicOnInvalid: " + entry.eventString);
-					queuedToStopMusic = true;
-				}
+                    LOGGER.info("doing forceStopMusicOnInvalid: " + entry.eventString);
+                    queuedToStopMusic = true;
+                }
 
-				break;
-			}
-		}
+                break;
+            }
+        }
 
-		for (var entry : validEntries) {
+        for (var entry : validEntries) {
 
-			if (!previousValidEntries.contains(entry)) {
+            if (!previousValidEntries.contains(entry)) {
 
-				// use the same random chance for all so they always happen together
-				entry.cachedRandomChance = rand.nextFloat();
-				boolean randSuccess = entry.cachedRandomChance <= entry.forceChance;
+                // use the same random chance for all so they always happen together
+                entry.cachedRandomChance = rand.nextFloat();
+                boolean randSuccess = entry.cachedRandomChance <= entry.forceChance;
 
-				// if this event wasn't valid before and is now
-				if (entry.forceStopMusicOnValid) {
-					LOGGER.info("trying forceStopMusicOnValid: " + entry.eventString);
+                // if this event wasn't valid before and is now
+                if (entry.forceStopMusicOnValid) {
+                    LOGGER.info("trying forceStopMusicOnValid: " + entry.eventString);
 
-					if (randSuccess) {
-						LOGGER.info("doing forceStopMusicOnValid: " + entry.eventString);
-						queuedToStopMusic = true;
-					}
-				}
+                    if (randSuccess) {
+                        LOGGER.info("doing forceStopMusicOnValid: " + entry.eventString);
+                        queuedToStopMusic = true;
+                    }
+                }
 
-				if (entry.forceStartMusicOnValid) {
-					LOGGER.info("trying forceStartMusicOnValid: " + entry.eventString);
+                if (entry.forceStartMusicOnValid) {
+                    LOGGER.info("trying forceStartMusicOnValid: " + entry.eventString);
 
-					if (randSuccess) {
-						LOGGER.info("doing forceStartMusicOnValid: " + entry.eventString);
-						queuedToPlayMusic = true;
-					}
-				}
+                    if (randSuccess) {
+                        LOGGER.info("doing forceStartMusicOnValid: " + entry.eventString);
+                        queuedToPlayMusic = true;
+                    }
+                }
 
-			}
+            }
 
 
-		}
+        }
 
+    }
 
 
+    public static void tickFadeOut() {
 
-	}
+        if (!thread.isPlaying())
+            return;
+        MinecraftClient mc = MinecraftClient.getInstance();
+        assert mc != null;
+        boolean cobblemonBattleMusicIsPlaying = mc.getSoundManager().isPlaying(BattleMusicController.INSTANCE.getMusic());
+        int finalFadeDuration = FADE_DURATION;
+        if (cobblemonBattleMusicIsPlaying) {
+            finalFadeDuration = 60;
+        }
+        if (fadeOutTicks < finalFadeDuration) {
+            fadeOutTicks++;
+            thread.setGainPercentage(1f - (fadeOutTicks / (float) finalFadeDuration));
+        } else {
+            resetPlayer();
+        }
+    }
 
 
-	public static void tickFadeOut() {
+    public static void changeCurrentSong(String song, RMRuntimeEntry newEntry) {
 
-		if (!thread.isPlaying())
-			return;
+        resetPlayer();
 
-		if (fadeOutTicks < FADE_DURATION) {
-			fadeOutTicks++;
-			thread.setGainPercentage(1f - (fadeOutTicks / (float)FADE_DURATION));
-		}
-		else {
-			resetPlayer();
-		}
-	}
+        currentSong = song;
+        currentEntry = newEntry;
 
+        LOGGER.info("Changing entry: " + newEntry.eventString + " Song name: " + song);
 
-	public static void changeCurrentSong(String song, RMRuntimeEntry newEntry) {
+        // go full quiet while switching songs, we'll go back to 1.0f after we load the new song
+        thread.setGainPercentage(0.0f);
 
-		resetPlayer();
+        thread.play(song);
 
-		currentSong = song;
-		currentEntry = newEntry;
+        queuedToPlayMusic = false;
 
-		// go full quiet while switching songs, we'll go back to 1.0f after we load the new song
-		thread.setGainPercentage(0.0f);
+    }
 
-		if (song != null) {
-			LOGGER.info("Changing entry: " + newEntry.eventString + " Song name: " + song);
 
-			thread.play(song);
-		}
-		else {
-			// TODO: maybe a better way to do this that doesn't spam?
-			//LOGGER.info("Changing entry: " + newEntry.eventString + " Doing silence... ");
+    public static void setActiveSongpack(SongpackZip songpackZip) {
 
-			// this gets called earlier with resetPlayer
-			//thread.resetPlayer();
-		}
+        // TODO: more than one songpack?
+        if (currentSongpack != null) {
+            deactivateSongpack(currentSongpack);
+        }
 
-		queuedToPlayMusic = false;
+        resetPlayer();
 
-	}
+        currentSongpack = songpackZip;
 
+        loadedEntries = songpackZip.runtimeEntries;
 
+        // always start new music immediately
+        queuedToPlayMusic = true;
 
-	public static void setActiveSongpack(SongpackZip songpackZip) {
+    }
 
-		// TODO: more than one songpack?
-		if (currentSongpack != null) {
-			deactivateSongpack(currentSongpack);
-		}
+    public static void deactivateSongpack(SongpackZip songpackZip) {
 
-		resetPlayer();
+        // remove all entries that match that name
+        for (int i = loadedEntries.size() - 1; i >= 0; i--) {
+            if (loadedEntries.get(i).songpack == songpackZip.config.name) {
+                loadedEntries.remove(i);
+            }
+        }
 
-		currentSongpack = songpackZip;
+    }
 
-		loadedEntries = songpackZip.runtimeEntries;
+    public static int getMusicStopSpeed(SongpackZip songpack) {
 
-		// always start new music immediately
-		queuedToPlayMusic = true;
+        MusicSwitchSpeed speed = config.musicSwitchSpeed2;
 
-	}
+        if (config.musicSwitchSpeed2 == MusicSwitchSpeed.SONGPACK_DEFAULT) {
+            speed = songpack.config.musicSwitchSpeed;
+        }
 
-	public static void deactivateSongpack(SongpackZip songpackZip) {
+        if (config.debugModeEnabled) {
+            speed = MusicSwitchSpeed.INSTANT;
+        }
 
-		// remove all entries that match that name
-		for (int i = loadedEntries.size() - 1; i >= 0; i--) {
-			if (loadedEntries.get(i).songpack == songpackZip.config.name) {
-				loadedEntries.remove(i);
-			}
-		}
+        switch (speed) {
+            case INSTANT:
+                return 100;
+            case SHORT:
+                return 250;
+            case NORMAL:
+                return 900;
+            case LONG:
+                return 2400;
+        }
 
-	}
+        return 100;
 
-	public static int getMusicStopSpeed(SongpackZip songpack) {
+    }
 
-		MusicSwitchSpeed speed = config.musicSwitchSpeed2;
+    public static int getMusicDelay(SongpackZip songpack) {
 
-		if (config.musicSwitchSpeed2 == MusicSwitchSpeed.SONGPACK_DEFAULT) {
-			speed = songpack.config.musicSwitchSpeed;
-		}
+        MusicDelayLength delay = config.musicDelayLength2;
 
-		if (config.debugModeEnabled) {
-			speed = MusicSwitchSpeed.INSTANT;
-		}
+        if (config.musicDelayLength2 == MusicDelayLength.SONGPACK_DEFAULT) {
+            delay = songpack.config.musicDelayLength;
+        }
 
-		switch (speed) {
-			case INSTANT:
-				return 100;
-			case SHORT:
-				return 250;
-			case NORMAL:
-				return 900;
-			case LONG:
-				return 2400;
-		}
+        if (config.debugModeEnabled) {
+            delay = MusicDelayLength.NONE;
+        }
 
-		return 100;
+        switch (delay) {
+            case NONE:
+                return 0;
+            case SHORT:
+                return 250;
+            case NORMAL:
+                return 900;
+            case LONG:
+                return 2400;
+        }
 
-	}
+        return 100;
 
-	public static int getMusicDelay(SongpackZip songpack) {
+    }
 
-		MusicDelayLength delay = config.musicDelayLength2;
+    static void resetPlayer() {
 
-		if (config.musicDelayLength2 == MusicDelayLength.SONGPACK_DEFAULT) {
-			delay = songpack.config.musicDelayLength;
-		}
+        // if queued or playing
+        if (!thread.notQueuedOrPlaying()) {
+            thread.resetPlayer();
+        }
 
-		if (config.debugModeEnabled) {
-			delay = MusicDelayLength.NONE;
-		}
+        fadeOutTicks = 0;
+        queuedToStopMusic = false;
+        currentEntry = null;
+        currentSong = null;
+    }
 
-		switch (delay) {
-			case NONE:
-				return 0;
-			case SHORT:
-				return 250;
-			case NORMAL:
-				return 900;
-			case LONG:
-				return 2400;
-		}
 
-		return 100;
+    private static void processMusicDiscPlaying() {
 
-	}
+        // remove if the song is null or not playing anymore
+        musicDiscInstanceList.removeIf(soundInstance -> soundInstance == null || !MinecraftClient.getInstance().getSoundManager().isPlaying(soundInstance));
 
-	static void resetPlayer() {
 
-		// if queued or playing
-		if (!thread.notQueuedOrPlaying()) {
-			thread.resetPlayer();
-		}
+        boolean foundMusicDisc = false;
 
-		fadeOutTicks = 0;
-		queuedToStopMusic = false;
-		currentEntry = null;
-		currentSong = null;
-	}
+        for (SoundInstance disc : musicDiscInstanceList) {
 
+            Vec3d pos = new Vec3d(disc.getX(), disc.getY(), disc.getZ());
 
+            if (MinecraftClient.getInstance().player != null) {
+                Vec3d dist = MinecraftClient.getInstance().player.getPos().subtract(pos);
 
+                if (dist.length() > 65.f) {
+                    continue;
+                }
+            }
 
-	private static void processMusicDiscPlaying() {
+            foundMusicDisc = true;
 
-		// remove if the song is null or not playing anymore
-		musicDiscInstanceList.removeIf(soundInstance -> soundInstance == null || !MinecraftClient.getInstance().getSoundManager().isPlaying(soundInstance));
+        }
 
 
-		boolean foundMusicDisc = false;
+        GameOptions options = MinecraftClient.getInstance().options;
+        float jukeboxGain = options.getSoundVolume(SoundCategory.RECORDS);
 
-		for (SoundInstance disc : musicDiscInstanceList) {
 
-			Vec3d pos = new Vec3d(disc.getX(), disc.getY(), disc.getZ());
+        // only duck for jukebox if our volume is loud enough to where it would matter
+        if (foundMusicDisc && jukeboxGain >= 0.04f) {
 
-			if (MinecraftClient.getInstance().player != null) {
-				Vec3d dist = MinecraftClient.getInstance().player.getPos().subtract(pos);
+            var disc = musicDiscInstanceList.get(0);
 
-				if (dist.length() > 65.f) {
-					continue;
-				}
-			}
 
-			foundMusicDisc = true;
+            if (musicDiscDuckTicks < FADE_DURATION) {
+                musicDiscDuckTicks++;
+            }
 
-		}
+        } else {
+            if (musicDiscDuckTicks > 0) {
+                musicDiscDuckTicks--;
+            }
+        }
 
+        thread.setMusicDiscDuckPercentage(1f - (musicDiscDuckTicks / (float) FADE_DURATION));
 
-		GameOptions options = MinecraftClient.getInstance().options;
-		float jukeboxGain = options.getSoundVolume(SoundCategory.RECORDS);
 
-
-		// only duck for jukebox if our volume is loud enough to where it would matter
-		if (foundMusicDisc && jukeboxGain >= 0.04f) {
-
-			var disc = musicDiscInstanceList.get(0);
-
-
-
-			if (musicDiscDuckTicks < FADE_DURATION) {
-				musicDiscDuckTicks++;
-			}
-
-		}
-		else {
-			if (musicDiscDuckTicks > 0) {
-				musicDiscDuckTicks--;
-			}
-		}
-
-		thread.setMusicDiscDuckPercentage(1f - (musicDiscDuckTicks / (float)FADE_DURATION));
-
-
-	}
-
-
-
-
-
+    }
 
 
 }
